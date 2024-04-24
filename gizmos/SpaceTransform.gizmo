@@ -1,0 +1,358 @@
+Group {
+ name SpaceTransform
+ knobChanged "\nn = nuke.thisNode()\nk = nuke.thisKnob()\nif k.name() == \"convert_to\":\n    val = k.getValue()\n    for k in \[i for i in n.knobs() if i.startswith(\"at_\")]:\n        n\[k].setVisible(val==0)\n    n\[\"pref_ref_frame\"].setVisible(val==2)\n    n\[\"pref_set_frame\"].setVisible(val==2)\n    n\[\"prj_frame\"].setVisible(val==4)\n    n\[\"prj_set_frame\"].setVisible(val==4)\n    n.begin()\n    inpt = \[i for i in nuke.allNodes(\"Input\") if i\[\"number\"].getValue()==1]\[0]\n    xform = nuke.toNode(\"transform\")\n    dummy = nuke.toNode(\"dummy\")\n    if val == 0:\n        inpt.setName(\"axis\")\n        xform.setInput(0, inpt)\n        dummy.setInput(0, None)\n    else:\n        xform.setInput(0, None)\n        dummy.setInput(0, inpt)\n        if val == 1 or val == 2:\n            inpt.setName(\"obj_xform\")\n        if val > 2:\n            inpt.setName(\"camera\")\n    n.end()\n"
+ label "<font size = 4 color =\"orange\">\[value convert_to]</font>"
+ tile_color 0x8535d5ff
+ lock_connections true
+ addUserKnob {20 "Space Transform"}
+ addUserKnob {41 in l "position data" T in_p.in}
+ addUserKnob {6 output_p l "output P" -STARTLINE}
+ output_p true
+ addUserKnob {4 convert_to l "convert P to" M {"arbitrary transform" "object space" "position reference" "camera space" "projection space(stmap)" ""}}
+ addUserKnob {26 ""}
+ addUserKnob {4 at_xform_order l "transform order" M {SRT STR RST RTS TSR TRS ""}}
+ addUserKnob {4 at_rot_order l "rotation order" M {XYZ XZY YXZ YZX ZXY ZYX}}
+ at_rot_order ZXY
+ addUserKnob {13 at_translate l translate}
+ addUserKnob {13 at_rotate l rotate}
+ addUserKnob {13 at_scale l scale}
+ at_scale {1 1 1}
+ addUserKnob {7 at_uniform_scale l uniform_scale R 0.01 10}
+ at_uniform_scale 1
+ addUserKnob {13 at_skew l skew}
+ addUserKnob {13 at_pivot l pivot}
+ addUserKnob {3 pref_ref_frame l "reference frame" +HIDDEN}
+ pref_ref_frame 1001
+ addUserKnob {22 pref_set_frame l "set to current" -STARTLINE +HIDDEN T "n = nuke.thisNode()\[\"pref_ref_frame\"].setValue(nuke.frame())\n"}
+ addUserKnob {3 prj_frame l "projection frame" +HIDDEN}
+ prj_frame 1001
+ addUserKnob {22 prj_set_frame l "set to current" -STARTLINE +HIDDEN T "nuke.thisNode()\[\"prj_frame\"].setValue(nuke.frame())"}
+ addUserKnob {26 ""}
+ addUserKnob {26 credit l "" t "© Harut Harutyunyan\nhar8unyan@gmail.com\n2022" +STARTLINE T "<font><br/><b><a href=\"https://linktr.ee/har8unyan\" style=\"color:#666\">Harut Harutyunyan</a></b></font>"}
+}
+ BackdropNode {
+  inputs 0
+  name BackdropNode1
+  tile_color 0xaaaaaa00
+  label "arbitrary transform"
+  note_font_size 42
+  xpos -10
+  ypos -41
+  bdwidth 375
+  bdheight 257
+ }
+ BackdropNode {
+  inputs 0
+  name BackdropNode2
+  tile_color 0x8e388e00
+  label "cam\nspace"
+  note_font_size 42
+  xpos 1266
+  ypos -83
+  bdwidth 192
+  bdheight 395
+ }
+ BackdropNode {
+  inputs 0
+  name BackdropNode3
+  tile_color 0x7171c600
+  label "obj space"
+  note_font_size 42
+  xpos 527
+  ypos -50
+  bdwidth 262
+  bdheight 264
+ }
+ BackdropNode {
+  inputs 0
+  name BackdropNode4
+  tile_color 0xaaaaaa00
+  label "wrld space\n(ref frame)"
+  note_font_size 42
+  xpos 803
+  ypos 14
+  bdwidth 306
+  bdheight 303
+ }
+ BackdropNode {
+  inputs 0
+  name BackdropNode5
+  tile_color 0x7171c600
+  label "prj\nspace"
+  note_font_size 42
+  xpos 1639
+  ypos -48
+  bdwidth 181
+  bdheight 356
+ }
+ Camera {
+  inputs 0
+  projection_mode {{"\[expression \[value the_cam]projection_mode(\[value the_frame])]"}}
+  focal {{"\[expression \[value the_cam]focal(\[value the_frame])]"}}
+  haperture {{"\[expression \[value the_cam]haperture(\[value the_frame])]"}}
+  vaperture {{"\[expression \[value the_cam]vaperture(\[value the_frame])]"}}
+  near {{"\[expression \[value the_cam]near(\[value the_frame])]"}}
+  far {{"\[expression \[value the_cam]far(\[value the_frame])]"}}
+  win_translate {{"\[expression \[value the_cam]win_translate.u(\[value the_frame])]"} {"\[expression \[value the_cam]win_translate.v(\[value the_frame])]"}}
+  win_scale {{"\[expression \[value the_cam]win_scale.u(\[value the_frame])]"} {"\[expression \[value the_cam]win_scale.v(\[value the_frame])]"}}
+  winroll {{"\[expression \[value the_cam]winroll(\[value the_frame])]"}}
+  focal_point {{"\[expression \[value the_cam]focal_point(\[value the_frame])]"}}
+  fstop {{"\[expression \[value the_cam]fstop(\[value the_frame])]"}}
+  name dummy
+  help "DummyCam by Adrian Pueyo\n\nCamera that apart from the matrices also grabs all the \"Projection\" values from the upstream camera that it's connected to. Turns into a default Camera if no Camera connected. Can also be used inside of groups and gizmos, as many levels deep as you want :D All using live and super fast TCL.\n\nUpdated v1.1: Now grabs the correct frame too (thanks Erwan Leroy for the idea).\n\nUpdated v1.3: Now accepts Nuke13's Camera3\n\nadrianpueyo.com, 2019-2021"
+  onCreate "n = nuke.thisNode()\nfor k in \[\"projection_mode\",\"focal\",\"haperture\",\"vaperture\",\"near\",\"far\",\"win_translate\",\"win_scale\",\"winroll\",\"focal_point\",\"fstop\"]:\n    n\[k].setFlag(0x0000000010000000)"
+  xpos 877
+  ypos -75
+  addUserKnob {20 DummyCam l Defaults}
+  addUserKnob {43 the_cam +INVISIBLE}
+  the_cam "\[\n#DummyCam v1.3 - Updated 5 May 2021.\nset starting_point \"this.input0\"\nset default \"this.d_\"\n\n# If cam has no inputs, return the default.\nif \{\[exists \$starting_point]\} \{\n    set x \[node \$starting_point]\n\} \{ \n    return \$default\n\}\n\nset finished 0\nwhile \{\$finished != 1\} \{\n\n    # First look for a Cam or Input or topnode.\n    while \{\[class \$x] != \"Camera3\" && \[class \$x] != \"Camera2\" && \[class \$x] != \"Camera\" && \[class \$x] != \"Input\" && \$x != \[topnode \$x]\} \{\n        set x \[node \$x.input0]\n    \}\n\n    # Then, check if node is a cam (and return), and otherwise, if it's an input, see if the parent exists and move to it.\n    if \{\[class \$x]==\"Camera3\"||\[class \$x]==\"Camera2\"||\[class \$x]==\"Camera\"\} \{\n        set x \[append x \".\"]\n        return \$x\n    \} \{ \n        if \{ \[class \$x]==\"Input\" \} \{ \n            set inp \"\$x.parent.input\"\n            set inputNum \[value \$x.number]\n            set inp \[append inp \$inputNum]\n            if \{ \[exists \$inp] \} \{\n                set x \[node \$inp]\n            \} \{ \n                set finished 1\n            \}\n        \} \{ \n            set finished 1\n        \}\n    \}\n\}\nreturn \$default\n]"
+  addUserKnob {43 the_frame +INVISIBLE}
+  the_frame "\[\nset the_camera \[string trimright \[value the_cam] .]\nif \{\[exists \$the_camera]\} \{\n    return \[value \$the_camera.frame]\n\} \{ \n    return \[frame]\n\}\n]"
+  addUserKnob {4 d_projection_mode l projection M {perspective orthographic uv spherical ""}}
+  addUserKnob {7 d_focal l "focal length" R 0 100}
+  d_focal 50
+  addUserKnob {7 d_haperture l "horiz aperture" R 0 50}
+  d_haperture 24.576
+  addUserKnob {7 d_vaperture l "vert aperture" R 0 50}
+  d_vaperture 18.672
+  addUserKnob {7 d_near l near R 0 10}
+  d_near 0.1
+  addUserKnob {7 d_far l far R 0 10000}
+  d_far 10000
+  addUserKnob {30 d_win_translate l "window translate"}
+  addUserKnob {30 d_win_scale l "window scale"}
+  d_win_scale {1 1}
+  addUserKnob {7 d_winroll l "window roll" R 0 45}
+  addUserKnob {7 d_focal_point l "focal distance" R 0 10}
+  d_focal_point 2
+  addUserKnob {7 d_fstop l fstop R 0 30}
+  d_fstop 16
+ }
+ Input {
+  inputs 0
+  name Input
+  xpos 606
+  ypos -493
+ }
+set Ndfd65c00 [stack 0]
+ Shuffle {
+  in rgb
+  name in_p
+  xpos 606
+  ypos -364
+ }
+ Dot {
+  name Dot2
+  xpos 640
+  ypos -310
+ }
+set Ndfd65400 [stack 0]
+ Dot {
+  name Dot5
+  xpos 1340
+  ypos -310
+ }
+ Add {
+  value {{parent.dummy.world_matrix.3(convert_to==3?frame:prj_frame)*-1} {parent.dummy.world_matrix.7(convert_to==3?frame:prj_frame)*-1} {parent.dummy.world_matrix.11(convert_to==3?frame:prj_frame)*-1} 0}
+  name Add2
+  xpos 1306
+  ypos 58
+ }
+ ColorMatrix {
+  matrix {
+      {{parent.dummy.world_matrix.0(convert_to==3?frame:prj_frame)} {parent.dummy.world_matrix.1(convert_to==3?frame:prj_frame)} {parent.dummy.world_matrix.2(convert_to==3?frame:prj_frame)}}
+      {{parent.dummy.world_matrix.4(convert_to==3?frame:prj_frame)} {parent.dummy.world_matrix.5(convert_to==3?frame:prj_frame)} {parent.dummy.world_matrix.6(convert_to==3?frame:prj_frame)}}
+      {{parent.dummy.world_matrix.8(convert_to==3?frame:prj_frame)} {parent.dummy.world_matrix.9(convert_to==3?frame:prj_frame)} {parent.dummy.world_matrix.10(convert_to==3?frame:prj_frame)}}
+    }
+  invert true
+  name ColorMatrix2
+  xpos 1306
+  ypos 133
+ }
+set Ndfd64800 [stack 0]
+ NoOp {
+  name fov
+  xpos 1677
+  ypos 133
+  addUserKnob {20 User}
+  addUserKnob {7 calc_vaperture}
+  calc_vaperture {{parent.dummy.haperture(prj_frame)/(input.width/input.height)}}
+  addUserKnob {7 v_fov}
+  v_fov {{atan(calc_vaperture/(2*parent.dummy.focal(prj_frame)))}}
+  addUserKnob {7 h_fov}
+  h_fov {{atan(parent.dummy.haperture(prj_frame)/(2*parent.dummy.focal(prj_frame)))}}
+ }
+ ColorMatrix {
+  matrix {
+      {{1/tan(input.h_fov)} 0 0}
+      {0 {1/tan(input.v_fov)} 0}
+      {0 0 {((parent.dummy.far(prj_frame)+parent.dummy.near(prj_frame))/(parent.dummy.far(prj_frame)-parent.dummy.near(prj_frame)))*-1}}
+    }
+  name ColorMatrix1
+  xpos 1677
+  ypos 166
+ }
+ Add {
+  value {0 0 {((2*(parent.dummy.far(prj_frame)*parent.dummy.near(prj_frame)))/(parent.dummy.far(prj_frame)-parent.dummy.near(prj_frame)))*-1} 0}
+  name Add1
+  xpos 1677
+  ypos 198
+ }
+ Expression {
+  expr0 r/b
+  expr1 g/b
+  expr2 0
+  name Expression1
+  xpos 1677
+  ypos 242
+ }
+ Expression {
+  expr0 (r+1)/2
+  expr1 (g+1)/2
+  name Expression2
+  xpos 1677
+  ypos 274
+ }
+ Dot {
+  name Dot7
+  xpos 1711
+  ypos 424
+ }
+push $Ndfd64800
+ Dot {
+  name Dot6
+  xpos 1340
+  ypos 292
+ }
+push $Ndfd65400
+ Add {
+  value {{parent.dummy.world_matrix.3*-1} {parent.dummy.world_matrix.7*-1} {parent.dummy.world_matrix.11*-1} 0}
+  name Add_to_obj
+  xpos 606
+  ypos 25
+ }
+ ColorMatrix {
+  matrix {
+      {{parent.dummy.world_matrix.0} {parent.dummy.world_matrix.1} {parent.dummy.world_matrix.2}}
+      {{parent.dummy.world_matrix.4} {parent.dummy.world_matrix.5} {parent.dummy.world_matrix.6}}
+      {{parent.dummy.world_matrix.8} {parent.dummy.world_matrix.9} {parent.dummy.world_matrix.10}}
+    }
+  invert true
+  name ColorMatrix_to_obj
+  xpos 606
+  ypos 131
+ }
+set Ndfd2a000 [stack 0]
+ ColorMatrix {
+  matrix {
+      {{parent.dummy.world_matrix.0(parent.pref_ref_frame)} {parent.dummy.world_matrix.1(parent.pref_ref_frame)} {parent.dummy.world_matrix.2(parent.pref_ref_frame)}}
+      {{parent.dummy.world_matrix.4(parent.pref_ref_frame)} {parent.dummy.world_matrix.5(parent.pref_ref_frame)} {parent.dummy.world_matrix.6(parent.pref_ref_frame)}}
+      {{parent.dummy.world_matrix.8(parent.pref_ref_frame)} {parent.dummy.world_matrix.9(parent.pref_ref_frame)} {parent.dummy.world_matrix.10(parent.pref_ref_frame)}}
+    }
+  name ColorMatrix4
+  xpos 881
+  ypos 131
+ }
+ Add {
+  value {{parent.dummy.world_matrix.3(parent.pref_ref_frame)} {parent.dummy.world_matrix.7(parent.pref_ref_frame)} {parent.dummy.world_matrix.11(parent.pref_ref_frame)} 0}
+  name Add4
+  xpos 881
+  ypos 200
+ }
+ Dot {
+  name Dot4
+  xpos 915
+  ypos 290
+ }
+push $Ndfd2a000
+push $Ndfd65400
+ Dot {
+  name Dot1
+  xpos 34
+  ypos -310
+ }
+ Add {
+  channels rgb
+  value {{parent.transform.world_matrix.3} {parent.transform.world_matrix.7} {parent.transform.world_matrix.11} 0}
+  name Add_at_transform
+  xpos 0
+  ypos 58
+ }
+ ColorMatrix {
+  matrix {
+      {{parent.transform.world_matrix.0} {parent.transform.world_matrix.1} {parent.transform.world_matrix.2}}
+      {{parent.transform.world_matrix.4} {parent.transform.world_matrix.5} {parent.transform.world_matrix.6}}
+      {{parent.transform.world_matrix.8} {parent.transform.world_matrix.9} {parent.transform.world_matrix.10}}
+    }
+  name ColorMatrix_at_rotate
+  xpos 0
+  ypos 106
+ }
+ Dot {
+  name Dot3
+  xpos 34
+  ypos 424
+ }
+ Switch {
+  inputs 5
+  which {{parent.convert_to}}
+  name Switch1
+  xpos 606
+  ypos 421
+ }
+set Ndfcbfc00 [stack 0]
+push $Ndfcbfc00
+push $Ndfd65c00
+ Dot {
+  name Dot8
+  xpos -210
+  ypos -490
+ }
+ Dot {
+  name Dot9
+  xpos -210
+  ypos 498
+ }
+ ShuffleCopy {
+  inputs 2
+  red red
+  green green
+  blue blue
+  out {{{parent.in_p.in}}}
+  name ShuffleCopy1
+  xpos 546
+  ypos 495
+ }
+ Switch {
+  inputs 2
+  which {{parent.output_p}}
+  name Switch2
+  xpos 606
+  ypos 557
+ }
+ Output {
+  name Output1
+  xpos 606
+  ypos 606
+ }
+ Input {
+  inputs 0
+  name axis
+  xpos 867
+  ypos -172
+  number 1
+ }
+ Axis {
+  xform_order {{parent.at_xform_order}}
+  rot_order {{parent.at_rot_order}}
+  translate {{parent.at_translate} {parent.at_translate} {parent.at_translate}}
+  rotate {{parent.at_rotate} {parent.at_rotate} {parent.at_rotate}}
+  scaling {{parent.at_scale} {parent.at_scale} {parent.at_scale}}
+  uniform_scale {{parent.at_uniform_scale}}
+  skew {{parent.at_skew} {parent.at_skew} {parent.at_skew}}
+  pivot {{parent.at_pivot} {parent.at_pivot} {parent.at_pivot}}
+  name transform
+  xpos 230
+  ypos 39
+ }
+end_group
