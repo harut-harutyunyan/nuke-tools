@@ -1,0 +1,172 @@
+Group {
+ name MultiReconcile
+ knobChanged "\nn = nuke.thisNode()\nk = nuke.thisKnob()\nif k.name() == \"inputChange\":\n    if n\[\"range\"].getValue()==0:\n        n\[\"start_frame\"].setValue(n.frameRange().first())\n        n\[\"end_frame\"].setValue(n.frameRange().last())\nif k.name().startswith(\"on_\"):\n    num = k.name().split(\"_\")\[1]\n    n\[\"p3d_\"+num].setEnabled(k.value()==1)\n    try:\n        n\[\"p2d_\"+num].setEnabled(k.value()==0)\n    except NameError:\n        pass\nif k.name() == \"range\":\n    val = k.getValue()\n    n\[\"start_frame\"].setEnabled(val == 2)\n    n\[\"end_frame\"].setEnabled(val == 2)\n    if val == 0:\n        n\[\"start_frame\"].setValue(n.frameRange().first())\n        n\[\"end_frame\"].setValue(n.frameRange().last())\n    elif val == 1:\n        n\[\"start_frame\"].setValue(nuke.root().frameRange().first())\n        n\[\"end_frame\"].setValue(nuke.root().frameRange().last())        \n"
+ tile_color 0x8535d5ff
+ lock_connections true
+ addUserKnob {20 MultiReconcile l "Multi Reconcile"}
+ addUserKnob {41 in l "position data" T PP.in}
+ addUserKnob {6 view_p l view -STARTLINE}
+ addUserKnob {26 ""}
+ addUserKnob {4 range l "frame range" M {Input Global Custom ""}}
+ addUserKnob {3 start_frame l from -STARTLINE +DISABLED}
+ start_frame 1
+ addUserKnob {3 end_frame l to -STARTLINE +DISABLED}
+ end_frame 1
+ addUserKnob {22 track l "track points" T "import nukescripts\nimport math\nimport _nukemath\n\ndef cameraProjectionMatrixAt(cameraNode, frame):\n\n    wm = cameraNode\[\"world_matrix\"].getValueAt(frame)\n    camTransform = _nukemath.Matrix4()\n    tt = \[wm\[0], wm\[4], wm\[8], wm\[12],\n          wm\[1], wm\[5], wm\[9], wm\[13],\n          wm\[2], wm\[6], wm\[10], wm\[14],\n          wm\[3], wm\[7], wm\[11], wm\[15],\n    ]\n    for i in range(len(tt)):\n        camTransform\[i] = tt\[i]\n    camTransform = camTransform.inverse()\n\n    roll = float(cameraNode\['winroll'].getValueAt(frame))\n    scale_x, scale_y = \[float(v) for v in cameraNode\['win_scale'].getValueAt(frame)]\n    translate_x, translate_y = \[float(v) for v in cameraNode\['win_translate'].getValueAt(frame)]\n    m = _nukemath.Matrix4()\n    m.makeIdentity()\n    m.rotateZ(math.radians(roll))\n    m.scale(1.0 / scale_x, 1.0 / scale_y, 1.0)\n    m.translate(-translate_x, -translate_y, 0.0)\n\n    focal_length = float(cameraNode\['focal'].getValueAt(frame))\n    h_aperture = float(cameraNode\['haperture'].getValueAt(frame))\n    near = float(cameraNode\['near'].getValueAt(frame))\n    far = float(cameraNode\['far'].getValueAt(frame))\n    projection_mode = int(cameraNode\['projection_mode'].getValueAt(frame))\n    p = _nukemath.Matrix4()\n    p.projection(focal_length / h_aperture, near, far, projection_mode == 0)\n\n    format = nuke.root()\['format'].value()\n    imageAspect = float(format.height()) / float(format.width())\n    t = _nukemath.Matrix4()\n    t.makeIdentity()\n    t.translate( 1.0, 1.0 - (1.0 - imageAspect / float(format.pixelAspect())), 0.0 )\n\n    x_scale = float(format.width()) / 2.0\n    y_scale = x_scale * format.pixelAspect()\n    s = _nukemath.Matrix4()\n    s.makeIdentity()\n    s.scale(x_scale, y_scale, 1.0)\n\n    return s * t * p * m * camTransform\n\n\ndef projectPointAt(camera=None, point=None, frame=None):\n\n    camNode = None\n    if isinstance(camera, nuke.Node):\n        camNode = camera\n    elif isinstance(camera, str):\n        camNode = nuke.toNode(camera)\n    else:\n        raise ValueError(\"Argument camera must be a node or the name of a node.\")\n\n    camMatrix = cameraProjectionMatrixAt(camNode, frame)\n    if camMatrix == None:\n        raise RuntimeError(\"snap3d.cameraProjectionMatrix() returned None for camera.\")\n\n    if isinstance(point, nuke.math.Vector3):\n        pt = point\n    elif isinstance(point, list) or isinstance(point, tuple):\n        pt = nuke.math.Vector3(point\[0], point\[1], point\[2])\n    else:\n        raise ValueError(\"All items in point must be nuke.math.Vector3 or list/tuple of 3 floats.\")\n\n    tPos = camMatrix * nuke.math.Vector4(pt.x, pt.y, pt.z, 1.0)\n    return nuke.math.Vector2(tPos.x / tPos.w, tPos.y / tPos.w)\n\ndef sample(node, pos):\n    return \[nuke.sample(node, \"r\", pos\[0], pos\[1]), nuke.sample(node, \"g\", pos\[0], pos\[1]), nuke.sample(node, \"b\", pos\[0], pos\[1])]\n\ndef reconcile(p2d, p3d, cam):\n\n    for f in range(int(start), int(end+1)):\n        if isinstance(p3d, nuke.XYZ_Knob):\n            pos = projectPointAt(cam, p3d.getValueAt(f), f)\n        else:\n            pos = projectPointAt(cam, p3d, f)\n        p2d.setValueAt(pos\[0], f, 0)\n        p2d.setValueAt(pos\[1], f, 1)\n\nnode = nuke.thisNode()\n\nstart = node\[\"start_frame\"].getValue()\nend = node\[\"end_frame\"].getValue()\n\nptcount = node\[\"ptcount\"]\nptnum = int(ptcount.getValue())\n\nnode.begin()\ncam = nuke.toNode(\"DummyCam\")\npp = nuke.toNode(\"_sample_p_\")\n\nnode.end()\n\nfor i in range(ptnum):\n    on = node\[\"on_\{\}\".format(i)]\n    if on.value():\n        p2d = node\[\"p2d_\{\}\".format(i)]\n        ppos = node\[\"p3d_\{\}\".format(i)]\n        if isinstance(ppos, nuke.XYZ_Knob):\n            p3d = ppos\n        else:\n            p3d = sample(pp, ppos.value())\n        reconcile(p2d, p3d, cam)\n        on.setValue(False)\n        p2d.setEnabled(True)" +STARTLINE}
+ addUserKnob {22 export l "export tracker" -STARTLINE T "node = nuke.thisNode()\nnode.end()\n\ntracker = nuke.createNode(\"Tracker4\")\ntracker\[\"tile_color\"].setValue(3036654335)\ntracker\[\"label\"].setValue(\"<center><b>MultiReconcile\\nexport points</b>\")\ntracker.setInput(0, None)\ntracker.setXYpos(node.xpos()+100, node.ypos()+100)\n\nk = tracker\[\"tracks\"]\n\nptcount = int(node\[\"ptcount\"].getValue())\n\nfor i in range(ptcount):\n    tracker\[\"add_track\"].execute()\n    for f in nuke.FrameRange(int(node\[\"start_frame\"].getValue()), int(node\[\"end_frame\"].getValue()), 1):\n        pos = node\[\"p2d_\{\}\".format(i)].getValueAt(f)\n        k.setValueAt(pos\[0], f, 31*i+2)\n        k.setValueAt(pos\[1], f, 31*i+3)"}
+ addUserKnob {26 ""}
+ addUserKnob {22 add_pt l "add point" T "node = nuke.thisNode()\n\n\nptcount = node\[\"ptcount\"]\nptnum = int(ptcount.getValue())\n\nnode.removeKnob(node.knob(\"credit\"))\n\nscript = \"\"\"\nnode = nuke.thisNode()\nknob = nuke.thisKnob()\nptcount = node\[\"ptcount\"]\nptnum = int(ptcount.getValue())\n\nnn = int(knob.name().split(\"_\")\[1])\n\nnode.removeKnob(node\[\"p3d_\{\}\".format(nn)])\nnode.removeKnob(node\[\"on_\{\}\".format(nn)])\nnode.removeKnob(node\[\"del_\{\}\".format(nn)])\nnode.removeKnob(node\[\"p2d_\{\}\".format(nn)])\nnode.removeKnob(node\[\"div_\{\}\".format(nn)])\nptcount.setValue(ptnum-1)\n\"\"\"\nknob = nuke.XY_Knob(\"p3d_\{\}\".format(ptnum), \"p3d\")\nnode.addKnob(knob)\np2d = nuke.XY_Knob(\"p2d_\{\}\".format(ptnum), \"p2d\")\nknob = nuke.Boolean_Knob(\"on_\{\}\".format(ptnum), \"active\")\nnode.addKnob(knob)\nknob.setValue(True)\nknob = nuke.PyScript_Knob(\"del_\{\}\".format(ptnum), \"X\", script)\nnode.addKnob(knob)\nnode.addKnob(p2d)\np2d.setAnimated()\np2d.setEnabled(False)\nknob = nuke.Text_Knob(\"div_\{\}\".format(ptnum), \"\")\nnode.addKnob(knob) \nptcount.setValue(ptnum+1)\n\ncredit = nuke.Text_Knob(\"credit\",\"\", '<font><br/><b><a href=\"https://linktr.ee/har8unyan\" style=\"color:#666\">Harut Harutyunyan</a></b></font>')\nnode.addKnob(credit)" +STARTLINE}
+ addUserKnob {22 addaxis l "add axis" -STARTLINE T "node = nuke.thisNode()\nnode.end()\nptcount = node\[\"ptcount\"]\n\nsel = \[n for n in nuke.selectedNodes() if n.Class() in \[\"Axis\", \"Axis2\", \"Axis3\"]]\nif not sel:\n    nuke.message(\"No Axis nodes selected.\")\nelse:\n    node.removeKnob(node.knob(\"credit\"))\n    for axis in sel:\n        ptnum = int(ptcount.getValue())\n\n        script = \"\"\"\nnode = nuke.thisNode()\nknob = nuke.thisKnob()\nptcount = node\[\"ptcount\"]\nptnum = int(ptcount.getValue())\n\nnn = int(knob.name().split(\"_\")\[1])\n\nnode.removeKnob(node\[\"p3d_\{\}\".format(nn)])\nnode.removeKnob(node\[\"on_\{\}\".format(nn)])\nnode.removeKnob(node\[\"del_\{\}\".format(nn)])\nnode.removeKnob(node\[\"p2d_\{\}\".format(nn)])\nnode.removeKnob(node\[\"div_\{\}\".format(nn)])\nptcount.setValue(ptnum-1)\n        \"\"\"\n        knob = nuke.XYZ_Knob(\"p3d_\{\}\".format(ptnum), \"p3d\")\n        node.addKnob(knob)\n        knob.setAnimated()\n        for f in nuke.FrameRange(int(node\[\"start_frame\"].getValue()), int(node\[\"end_frame\"].getValue()), 1):\n            matrix = axis\[\"world_matrix\"].getValueAt(f)\n            knob.setValueAt(matrix\[3], f, 0)\n            knob.setValueAt(matrix\[7], f, 1)\n            knob.setValueAt(matrix\[11], f, 2)\n        knob = nuke.Boolean_Knob(\"on_\{\}\".format(ptnum), \"active\")\n        node.addKnob(knob)\n        knob.setValue(True)\n        knob = nuke.PyScript_Knob(\"del_\{\}\".format(ptnum), \"X\", script)\n        node.addKnob(knob)\n        knob = nuke.XY_Knob(\"p2d_\{\}\".format(ptnum), \"p2d\")\n        node.addKnob(knob)\n        knob.setAnimated()\n        knob.setEnabled(False)\n        knob = nuke.Text_Knob(\"div_\{\}\".format(ptnum), \"\")\n        node.addKnob(knob) \n        ptcount.setValue(ptnum+1)\n\n    credit = nuke.Text_Knob(\"credit\",\"\", '<font><br/><b><a href=\"https://linktr.ee/har8unyan\" style=\"color:#666\">Harut Harutyunyan</a></b></font>')\n    node.addKnob(credit)"}
+ addUserKnob {22 addselected l "add selected" -STARTLINE T "import nukescripts\n\nnode = nuke.thisNode()\nnode.end()\nptcount = node\[\"ptcount\"]\n\nsel_list = \[]\nfor v in nukescripts.selectedPoints(selectionThreshold=1):\n    v = \[v\[0], v\[1], v\[2]]\n    if not v in sel_list:\n        sel_list.append(v)\n\nif not sel_list:\n    nuke.message(\"No points selected.\")\nelse:\n    node.removeKnob(node.knob(\"credit\"))\n\n    for point in sel_list:\n        ptnum = int(ptcount.getValue())\n\n        script = \"\"\"\nnode = nuke.thisNode()\nknob = nuke.thisKnob()\nptcount = node\[\"ptcount\"]\nptnum = int(ptcount.getValue())\n\nnn = int(knob.name().split(\"_\")\[1])\n\nnode.removeKnob(node\[\"p3d_\{\}\".format(nn)])\nnode.removeKnob(node\[\"on_\{\}\".format(nn)])\nnode.removeKnob(node\[\"del_\{\}\".format(nn)])\nnode.removeKnob(node\[\"p2d_\{\}\".format(nn)])\nnode.removeKnob(node\[\"div_\{\}\".format(nn)])\nptcount.setValue(ptnum-1)\n        \"\"\"\n        knob = nuke.XYZ_Knob(\"p3d_\{\}\".format(ptnum), \"p3d\")\n        node.addKnob(knob)\n        knob.setValue(point)\n        knob = nuke.Boolean_Knob(\"on_\{\}\".format(ptnum), \"active\")\n        node.addKnob(knob)\n        knob.setValue(True)\n        knob = nuke.PyScript_Knob(\"del_\{\}\".format(ptnum), \"X\", script)\n        node.addKnob(knob)\n        knob = nuke.XY_Knob(\"p2d_\{\}\".format(ptnum), \"p2d\")\n        node.addKnob(knob)\n        knob.setAnimated()\n        knob.setEnabled(False)\n        knob = nuke.Text_Knob(\"div_\{\}\".format(ptnum), \"\")\n        node.addKnob(knob) \n        ptcount.setValue(ptnum+1)\n\n    credit = nuke.Text_Knob(\"credit\",\"\", '<font><br/><b><a href=\"https://linktr.ee/har8unyan\" style=\"color:#666\">Harut Harutyunyan</a></b></font>')\n    node.addKnob(credit)"}
+ addUserKnob {26 ""}
+ addUserKnob {3 ptcount l "" +STARTLINE +DISABLED +INVISIBLE}
+ addUserKnob {26 credit l "" t "© Harut Harutyunyan\nhar8unyan@gmail.com\n2022" +STARTLINE T "<font><br/><b><a href=\"https://linktr.ee/har8unyan\" style=\"color:#666\">Harut Harutyunyan</a></b></font>"}
+}
+ Input {
+  inputs 0
+  name cam
+  xpos 709
+  ypos 59
+  number 1
+ }
+ Camera {
+  projection_mode {{"\[expression \[value the_cam]projection_mode(\[value the_frame])]"}}
+  focal {{"\[expression \[value the_cam]focal(\[value the_frame])]"}}
+  haperture {{"\[expression \[value the_cam]haperture(\[value the_frame])]"}}
+  vaperture {{"\[expression \[value the_cam]vaperture(\[value the_frame])]"}}
+  near {{"\[expression \[value the_cam]near(\[value the_frame])]"}}
+  far {{"\[expression \[value the_cam]far(\[value the_frame])]"}}
+  win_translate {{"\[expression \[value the_cam]win_translate.u(\[value the_frame])]"} {"\[expression \[value the_cam]win_translate.v(\[value the_frame])]"}}
+  win_scale {{"\[expression \[value the_cam]win_scale.u(\[value the_frame])]"} {"\[expression \[value the_cam]win_scale.v(\[value the_frame])]"}}
+  winroll {{"\[expression \[value the_cam]winroll(\[value the_frame])]"}}
+  focal_point {{"\[expression \[value the_cam]focal_point(\[value the_frame])]"}}
+  fstop {{"\[expression \[value the_cam]fstop(\[value the_frame])]"}}
+  name DummyCam
+  help "DummyCam by Adrian Pueyo\n\nCamera that apart from the matrices also grabs all the \"Projection\" values from the upstream camera that it's connected to. Turns into a default Camera if no Camera connected. Can also be used inside of groups and gizmos, as many levels deep as you want :D All using live and super fast TCL.\n\nUpdated v1.1: Now grabs the correct frame too (thanks Erwan Leroy for the idea).\n\nUpdated v1.3: Now accepts Nuke13's Camera3\n\nadrianpueyo.com, 2019-2021"
+  onCreate "n = nuke.thisNode()\nfor k in \[\"projection_mode\",\"focal\",\"haperture\",\"vaperture\",\"near\",\"far\",\"win_translate\",\"win_scale\",\"winroll\",\"focal_point\",\"fstop\"]:\n    n\[k].setFlag(0x0000000010000000)"
+  selected true
+  xpos 718
+  ypos 110
+  addUserKnob {20 DummyCam l Defaults}
+  addUserKnob {43 the_cam +INVISIBLE}
+  the_cam "\[\n#DummyCam v1.3 - Updated 5 May 2021.\nset starting_point \"this.input0\"\nset default \"this.d_\"\n\n# If cam has no inputs, return the default.\nif \{\[exists \$starting_point]\} \{\n    set x \[node \$starting_point]\n\} \{ \n    return \$default\n\}\n\nset finished 0\nwhile \{\$finished != 1\} \{\n\n    # First look for a Cam or Input or topnode.\n    while \{\[class \$x] != \"Camera3\" && \[class \$x] != \"Camera2\" && \[class \$x] != \"Camera\" && \[class \$x] != \"Input\" && \$x != \[topnode \$x]\} \{\n        set x \[node \$x.input0]\n    \}\n\n    # Then, check if node is a cam (and return), and otherwise, if it's an input, see if the parent exists and move to it.\n    if \{\[class \$x]==\"Camera3\"||\[class \$x]==\"Camera2\"||\[class \$x]==\"Camera\"\} \{\n        set x \[append x \".\"]\n        return \$x\n    \} \{ \n        if \{ \[class \$x]==\"Input\" \} \{ \n            set inp \"\$x.parent.input\"\n            set inputNum \[value \$x.number]\n            set inp \[append inp \$inputNum]\n            if \{ \[exists \$inp] \} \{\n                set x \[node \$inp]\n            \} \{ \n                set finished 1\n            \}\n        \} \{ \n            set finished 1\n        \}\n    \}\n\}\nreturn \$default\n]"
+  addUserKnob {43 the_frame +INVISIBLE}
+  the_frame "\[\nset the_camera \[string trimright \[value the_cam] .]\nif \{\[exists \$the_camera]\} \{\n    return \[value \$the_camera.frame]\n\} \{ \n    return \[frame]\n\}\n]"
+  addUserKnob {4 d_projection_mode l projection M {perspective orthographic uv spherical ""}}
+  addUserKnob {7 d_focal l "focal length" R 0 100}
+  d_focal 50
+  addUserKnob {7 d_haperture l "horiz aperture" R 0 50}
+  d_haperture 24.576
+  addUserKnob {7 d_vaperture l "vert aperture" R 0 50}
+  d_vaperture 18.672
+  addUserKnob {7 d_near l near R 0 10}
+  d_near 0.1
+  addUserKnob {7 d_far l far R 0 10000}
+  d_far 10000
+  addUserKnob {30 d_win_translate l "window translate"}
+  addUserKnob {30 d_win_scale l "window scale"}
+  d_win_scale {1 1}
+  addUserKnob {7 d_winroll l "window roll" R 0 45}
+  addUserKnob {7 d_focal_point l "focal distance" R 0 10}
+  d_focal_point 2
+  addUserKnob {7 d_fstop l fstop R 0 30}
+  d_fstop 16
+ }
+ Wireframe {
+  inputs 0
+  line_width 2
+  line_color {0 1 0.5 1}
+  name Wireframe1
+  xpos 420
+  ypos 75
+ }
+ Input {
+  inputs 0
+  name geo
+  xpos 291
+  ypos 20
+  number 2
+ }
+ ApplyMaterial {
+  inputs 2
+  name ApplyMaterial1
+  xpos 291
+  ypos 75
+ }
+ Input {
+  inputs 0
+  name in
+  xpos 6
+  ypos 18
+ }
+set Nd48e8000 [stack 0]
+ Remove {
+  name Remove1
+  xpos 153
+  ypos 12
+ }
+add_layer {N N.X N.Y N.Z}
+add_layer {P P.X P.Y P.Z}
+ ScanlineRender {
+  inputs 3
+  conservative_shader_sampling false
+  shutteroffset centred
+  motion_vectors_type distance
+  output_shader_vectors true
+  P_channel P
+  N_channel N
+  name ScanlineRender1
+  xpos 291
+  ypos 130
+ }
+set Nd48e8800 [stack 0]
+ Shuffle {
+  in P
+  in2 alpha
+  alpha red2
+  name Shuffle1
+  xpos 291
+  ypos 190
+ }
+push $Nd48e8000
+ Shuffle {
+  in P
+  name PP
+  xpos 138
+  ypos 133
+ }
+ Merge2 {
+  inputs 2
+  name Merge3
+  xpos 138
+  ypos 264
+  disable {{"!\[exists parent.input2]"}}
+ }
+ NoOp {
+  name _sample_p_
+  xpos 138
+  ypos 342
+ }
+push $Nd48e8800
+push $Nd48e8000
+ Merge2 {
+  inputs 2
+  operation plus
+  name Merge1
+  xpos 6
+  ypos 265
+  disable {{"!\[exists parent.input2]"}}
+ }
+ Switch {
+  inputs 2
+  which {{view_p}}
+  name Switch1
+  xpos 6
+  ypos 342
+ }
+ Output {
+  name Output1
+  xpos 6
+  ypos 401
+ }
+end_group
