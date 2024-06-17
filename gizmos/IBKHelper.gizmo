@@ -1,0 +1,594 @@
+Group {
+ name IBKHelper
+ knobChanged "\nn = nuke.thisNode()\nk = nuke.thisKnob()\nif k.name() == \"custom_matte\":\n    val = k.value()\n    \[n\[i].setVisible(val == 0) for i in n.knobs() if i.startswith(\"ibk_\")]\n    n.begin()\n    inpt = \[x for x in nuke.allNodes(\"Input\") if x.name()!=\"plate\"]\[0]\n    exp = nuke.toNode(\"Expression11\")\n    dot = nuke.toNode(\"Dot10\")\n    n.end()\n    if val==0:\n        inpt.setName(\"additional_matte\")\n        dot.setInput(0, None)\n        exp.setInput(0, inpt)\n    if val == 1:\n        inpt.setName(\"custom_matte\")\n        exp.setInput(0, None)\n        dot.setInput(0, inpt)\n"
+ tile_color 0x8535d5ff
+ lock_connections true
+ addUserKnob {20 ChromaClean l "IBK Helper"}
+ addUserKnob {22 double_out l "Split output" -STARTLINE T "node = nuke.thisNode()\nnode.end()\nCHNAME = \"h_screenprep\"\n\nnuke.Layer(CHNAME, \[CHNAME+\".red\", CHNAME+\".green\", CHNAME+\".blue\", CHNAME+\".alpha\"])\nnode.begin()\nshc = nuke.toNode(\"ShuffleCopy1\")\nshc\[\"disable\"].setValue(0)\nshc\[\"out\"].setValue(CHNAME)\nnode.end()\nsh = nuke.nodes.Shuffle(name = CHNAME)\nsh\[\"in\"].setValue(CHNAME)\nsh.setXYpos(node.xpos()+80, node.ypos()+100)\nsh.setInput(0, node)\nsh\[\"tile_color\"].setValue(295571967)\n\neven = nuke.nodes.Remove(name=\"Even Screen\")\n\neven\[\"channels\"].value()\n\neven\[\"channels\"].setValue(CHNAME)\neven.setInput(0, sh)\neven.setXYpos(node.xpos()+80, node.ypos()+130)\n\neven\[\"tile_color\"].setValue(295571967)\n\nclear = nuke.nodes.Remove(name=\"Clear Screen\")\nclear\[\"channels\"].value()\n\nclear\[\"channels\"].setValue(CHNAME)\nclear.setInput(0, node)\nclear.setXYpos(node.xpos()-80, node.ypos()+130)\nclear\[\"tile_color\"].setValue(295571967)"}
+ addUserKnob {22 create_ibk l "IBK Gizmo" -STARTLINE T "node = nuke.thisNode()\nnode.end()\nibk = nuke.createNode(\"IBKGizmoV3\", inpanel=False)\nibk\[\"st\"].setValue(1-int(node\[\"ibk_screen_type\"].getValue()))\nibk.setInput(1, node)\nibk.setInput(0, node.input(0))\nibk.setXYpos(node.xpos()+100, node.ypos()+55)"}
+ addUserKnob {26 ""}
+ addUserKnob {6 custom_matte l "custom matte" +STARTLINE}
+ addUserKnob {26 ""}
+ addUserKnob {4 ibk_screen_type l "screen type" M {green blue ""}}
+ addUserKnob {18 ibk_darks l darks}
+ ibk_darks {0 0 0}
+ addUserKnob {6 ibk_darks_panelDropped l "panel dropped state" -STARTLINE +HIDDEN +INVISIBLE}
+ addUserKnob {18 ibk_lights l lights}
+ ibk_lights {1 1 1}
+ addUserKnob {6 ibk_lights_panelDropped l "panel dropped state" -STARTLINE +HIDDEN +INVISIBLE}
+ addUserKnob {26 ibk_div l "" +STARTLINE}
+ addUserKnob {41 erode T colour.erode}
+ addUserKnob {26 ""}
+ addUserKnob {41 which l "patch black" T Switch1.which}
+ addUserKnob {26 ""}
+ addUserKnob {26 credit l "" t "© Harut Harutyunyan\nhar8unyan@gmail.com\n2022" +STARTLINE T "<font><br/><b><a href=\"https://linktr.ee/har8unyan\" style=\"color:#666\">Harut Harutyunyan</a></b></font>"}
+ addUserKnob {20 advanced l Advanced}
+ addUserKnob {7 even_edge l "even screen edge" R 0 0.5}
+ addUserKnob {7 even_screen_blur l "even screen blur" R 1 5}
+ even_screen_blur 3
+ addUserKnob {6 use_average l "average color" -STARTLINE}
+ use_average true
+}
+ Input {
+  inputs 0
+  name additional_matte
+  xpos -1275
+  ypos -441
+  number 1
+ }
+ Expression {
+  expr3 a>0?1:0
+  name Expression11
+  xpos -1082
+  ypos -276
+ }
+ Dot {
+  name Dot1
+  xpos -1048
+  ypos -234
+ }
+ Dot {
+  inputs 0
+  name Dot10
+  xpos -1041
+  ypos -377
+ }
+ Input {
+  inputs 0
+  name plate
+  xpos -883
+  ypos -497
+ }
+ Dot {
+  name Dot2
+  xpos -849
+  ypos -457
+ }
+set N612db000 [stack 0]
+ Group {
+  inputs 2
+  name colour
+  tile_color 0x990000
+  xpos -883
+  ypos -381
+  disable {{"!\[exists parent.input0]"}}
+  addUserKnob {20 "" l Parameters}
+  addUserKnob {41 screen_type l "screen type" T IBK2.screen_type}
+  addUserKnob {16 Size l size t "size of colour expansion" R 0 100}
+  addUserKnob {18 off l darks t "adjust the colour values to get the best separation between black and the screen type colour.\nYou want to be left with only shades of the screen colour and black. \nIf a green screen is selected start by bringing down darks->green\nIf a blue screen is selected start by bringing down darks->blue" R -1 1}
+  off {{parent.ibk_darks} {parent.ibk_darks} {parent.ibk_darks}}
+  addUserKnob {6 off_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {18 mult l lights t "adjust the colour values to get the best separation between black and the screen type colour.\nYou want to be left with only shades of the screen colour and black. \nIf a green screen is selected start by bringing down darks->green\nIf a blue screen is selected start by bringing down darks->blue" R 0 2}
+  mult {{parent.ibk_lights} {parent.ibk_lights} {parent.ibk_lights}}
+  addUserKnob {6 mult_panelDropped l "panel dropped state" -STARTLINE +HIDDEN}
+  addUserKnob {26 ""}
+  addUserKnob {7 erode t "increase this value if you still see traces of the foreground edge colour in the output" R 0 5}
+  addUserKnob {26 ""}
+  addUserKnob {7 multi l "patch black" t "increase this to optionally remove the black from the output.\nThis should only be used once the the above darks/lights have been set" R 0 5}
+  addUserKnob {6 filt l INVISIBLE -STARTLINE +INVISIBLE}
+  filt true
+  addUserKnob {26 ""}
+  addUserKnob {7 level l INVISIBLE t "multiply the rgb output. Helps remove noise from main key" +INVISIBLE}
+  level 1
+ }
+  Input {
+   inputs 0
+   name Input2
+   xpos -586
+   ypos 45
+   number 1
+  }
+  Dot {
+   name Dot2
+   xpos -552
+   ypos 118
+  }
+  Input {
+   inputs 0
+   name Input1
+   xpos -31
+   ypos -158
+  }
+  Dot {
+   name Dot16
+   xpos 3
+   ypos -104
+  }
+set N73da6000 [stack 0]
+  Dot {
+   name Dot1
+   tile_color 0x9597bf00
+   xpos -304
+   ypos -104
+  }
+  Grade {
+   multiply {{mult.r} {mult.g} {mult.b} {curve}}
+   add {{off.r} {off.g} {off.b} {curve}}
+   name Grade11
+   tile_color 0x7aa9ff00
+   xpos -338
+   ypos -53
+  }
+  Clamp {
+   maximum_enable false
+   name Clamp2
+   xpos -338
+   ypos 8
+  }
+set N73da6c00 [stack 0]
+push $N73da6c00
+push $N73da6c00
+  IBK {
+   inputs 3
+   screen_type {{ibk_screen_type}}
+   blue_green_weight 1
+   luma 1
+   name IBK2
+   tile_color 0xff00
+   xpos -338
+   ypos 64
+  }
+  Switch {
+   inputs 2
+   which {{custom_matte}}
+   name Switch2
+   xpos -338
+   ypos 115
+  }
+  Expression {
+   expr3 a
+   name Expression1
+   xpos -338
+   ypos 161
+  }
+  Invert {
+   channels alpha
+   name Invert1
+   tile_color 0x7aa9ff00
+   xpos -338
+   ypos 206
+  }
+  Erode {
+   size {{erode}}
+   name Erode1
+   xpos -18
+   ypos 206
+  }
+set N73dd8000 [stack 0]
+  Dot {
+   name Dot3
+   tile_color 0x9597bf00
+   xpos 16
+   ypos 686
+  }
+push $N73dd8000
+push $N73da6000
+  Dot {
+   name Dot17
+   xpos 126
+   ypos -104
+  }
+  Copy {
+   inputs 2
+   from0 rgba.alpha
+   to0 rgba.alpha
+   channels alpha
+   name Copy3
+   tile_color 0x9e3c6300
+   xpos 92
+   ypos 200
+  }
+  Premult {
+   name Premult3
+   xpos 92
+   ypos 259
+  }
+  Blur {
+   size {{Size}}
+   name Blur4
+   tile_color 0xcc804e00
+   xpos 92
+   ypos 283
+  }
+  Unpremult {
+   name Unpremult4
+   xpos 92
+   ypos 321
+  }
+set N73dd9800 [stack 0]
+  Clamp {
+   channels {rgba.red rgba.green rgba.blue -rgba.alpha}
+   maximum 0
+   MinClampTo_enable true
+   MaxClampTo_enable true
+   name Clamp1
+   xpos 212
+   ypos 321
+  }
+set N73dd9c00 [stack 0]
+  Dot {
+   name Dot5
+   xpos 366
+   ypos 325
+  }
+push $N73dd9c00
+push $N73dd9800
+  Dot {
+   name Dot4
+   xpos 126
+   ypos 370
+  }
+set N73e08400 [stack 0]
+  Copy {
+   inputs 2
+   from0 rgba.red
+   to0 rgba.alpha
+   name Copy1
+   xpos 212
+   ypos 359
+  }
+  Blur {
+   channels rgba
+   size {{Size*3*multi}}
+   name Blur1
+   xpos 212
+   ypos 411
+  }
+  Unpremult {
+   name Unpremult1
+   xpos 212
+   ypos 449
+  }
+  Copy {
+   inputs 2
+   from0 rgba.red
+   to0 rgba.alpha
+   name Copy2
+   xpos 332
+   ypos 442
+  }
+  Invert {
+   channels alpha
+   name Invert2
+   xpos 334
+   ypos 494
+  }
+set N73e09800 [stack 0]
+  FilterErode {
+   channels alpha
+   size {{(-Size/5)}}
+   filter gaussian
+   name FilterErode2
+   xpos 334
+   ypos 592
+  }
+push $N73e09800
+  FilterErode {
+   channels alpha
+   size {{(-Size/5)*multi*2}}
+   filter gaussian
+   name FilterErode1
+   xpos 217
+   ypos 494
+  }
+  Switch {
+   inputs 2
+   which {{1-filt}}
+   name Switch1
+   xpos 217
+   ypos 599
+  }
+  Premult {
+   name Premult1
+   xpos 217
+   ypos 637
+  }
+push $N73e08400
+  Merge {
+   inputs 2
+   name Merge1
+   xpos 92
+   ypos 637
+  }
+  Copy {
+   inputs 2
+   from0 rgba.alpha
+   to0 rgba.alpha
+   name ChannelCopy2
+   tile_color 0x9e3c6300
+   xpos 92
+   ypos 675
+  }
+  Grade {
+   multiply {{level}}
+   name Grade1
+   xpos 92
+   ypos 727
+  }
+  Output {
+   name Output1
+   xpos 92
+   ypos 764
+  }
+ end_group
+ ChannelMerge {
+  inputs 2
+  operation stencil
+  name ChannelMerge1
+  xpos -883
+  ypos -249
+ }
+ Premult {
+  name Premult1
+  xpos -883
+  ypos -84
+ }
+set N73e6c000 [stack 0]
+ EdgeBlur {
+  channels rgba
+  size 1
+  name EdgeBlur1
+  xpos -1125
+  ypos -92
+ }
+ Expression {
+  expr0 r>0?r/a:0
+  expr1 g>0?g/a:0
+  expr2 b>0?b/a:0
+  expr3 a>0?1:0
+  name Unpremult
+  xpos -1125
+  ypos -50
+ }
+ EdgeBlur {
+  channels rgba
+  size 1
+  name EdgeBlur2
+  xpos -1125
+  ypos -24
+ }
+ Expression {
+  expr0 r>0?r/a:0
+  expr1 g>0?g/a:0
+  expr2 b>0?b/a:0
+  expr3 a>0?1:0
+  name Unpremult1
+  xpos -1125
+  ypos 18
+ }
+ EdgeBlur {
+  channels rgba
+  size 1
+  name EdgeBlur14
+  xpos -1125
+  ypos 44
+ }
+ Expression {
+  expr0 r>0?r/a:0
+  expr1 g>0?g/a:0
+  expr2 b>0?b/a:0
+  expr3 a>0?1:0
+  name Unpremult2
+  xpos -1125
+  ypos 86
+ }
+ EdgeBlur {
+  channels rgba
+  size 1
+  name EdgeBlur15
+  xpos -1125
+  ypos 112
+ }
+ Expression {
+  expr0 r>0?r/a:0
+  expr1 g>0?g/a:0
+  expr2 b>0?b/a:0
+  expr3 a>0?1:0
+  name Unpremult3
+  xpos -1125
+  ypos 154
+ }
+ EdgeBlur {
+  channels rgba
+  size 2
+  name EdgeBlur16
+  xpos -1125
+  ypos 180
+ }
+ Expression {
+  expr0 r>0?r/a:0
+  expr1 g>0?g/a:0
+  expr2 b>0?b/a:0
+  expr3 a>0?1:0
+  name Unpremult4
+  xpos -1125
+  ypos 222
+ }
+ EdgeBlur {
+  channels rgba
+  size 2
+  name EdgeBlur17
+  xpos -1125
+  ypos 248
+ }
+ Expression {
+  expr0 r>0?r/a:0
+  expr1 g>0?g/a:0
+  expr2 b>0?b/a:0
+  expr3 a>0?1:0
+  name Unpremult5
+  xpos -1125
+  ypos 290
+ }
+ EdgeExtend {
+  sourceIsPremultiplied true
+  premultiply false
+  name EdgeExtend1
+  xpos -1125
+  ypos 387
+ }
+ Dot {
+  name Dot12
+  xpos -1091
+  ypos 914
+ }
+push $N73e6c000
+ Switch {
+  inputs 2
+  name Switch1
+  xpos -860
+  ypos 910
+ }
+push $N73e6c000
+ Merge2 {
+  inputs 2
+  operation under
+  bbox B
+  name Merge4
+  xpos -750
+  ypos 910
+ }
+ Shuffle {
+  alpha white
+  name Shuffle1
+  xpos -610
+  ypos 910
+ }
+ Dot {
+  name Dot11
+  xpos -441
+  ypos 914
+ }
+set N73f7e400 [stack 0]
+ Dot {
+  name Dot5
+  xpos -339
+  ypos 914
+ }
+set N73f7e800 [stack 0]
+ Dot {
+  name Dot4
+  xpos -215
+  ypos 914
+ }
+set N73f7ec00 [stack 0]
+ Dot {
+  name Dot6
+  xpos 26
+  ypos 914
+ }
+push $N612db000
+ Dot {
+  name Dot3
+  xpos -134
+  ypos -457
+ }
+ Dot {
+  name Dot7
+  xpos -134
+  ypos 1000
+ }
+set N73f7f800 [stack 0]
+ IBKGizmoV3 {
+  inputs 2
+  name IBKGizmoV3_1
+  st {{1-parent.ibk_screen_type}}
+ }
+ Grade {
+  channels alpha
+  blackpoint {{even_edge}}
+  whitepoint {{1-blackpoint}}
+  white_clamp true
+  name Grade2
+  xpos -8
+  ypos 1104
+ }
+push $N73f7e800
+ Blur {
+  channels rgb
+  size {{1000*even_screen_blur}}
+  name Blur1
+  label "\[value size]"
+  xpos -373
+  ypos 960
+ }
+ Expression {
+  expr0 "(r(width/1.5, height/1.5) + r(width/2, height/2) + r(width/2.5, height/2.5) + r(width/3, height/3))/4"
+  expr1 "(g(width/1.5, height/1.5) + g(width/2, height/2) + g(width/2.5, height/2.5) + g(width/3, height/3))/4"
+  expr2 "(b(width/1.5, height/1.5) + b(width/2, height/2) + b(width/2.5, height/2.5) + b(width/3, height/3))/4"
+  name Expression12
+  xpos -373
+  ypos 1018
+  disable {{1-use_average}}
+ }
+push $N73f7ec00
+ Merge2 {
+  inputs 2
+  operation minus
+  name Merge1
+  xpos -249
+  ypos 1018
+ }
+ Merge2 {
+  inputs 2
+  operation stencil
+  name Merge3
+  xpos -249
+  ypos 1110
+ }
+ Dot {
+  name Dot8
+  xpos -215
+  ypos 1195
+ }
+push $N73f7f800
+ Merge2 {
+  inputs 2
+  operation plus
+  name Merge2
+  xpos -168
+  ypos 1192
+ }
+ Dot {
+  name Dot9
+  xpos -134
+  ypos 1280
+ }
+push $N73f7e400
+ ShuffleCopy {
+  inputs 2
+  red red
+  green green
+  blue blue
+  out none
+  name ShuffleCopy1
+  xpos -475
+  ypos 1277
+  disable true
+ }
+ Output {
+  name Output1
+  xpos -475
+  ypos 1331
+ }
+end_group
